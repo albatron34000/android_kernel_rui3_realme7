@@ -437,11 +437,15 @@ ssize_t kernel_read(struct file *file, void *buf, size_t count, loff_t *pos)
 	return result;
 }
 EXPORT_SYMBOL(kernel_read);
-
+#ifdef CONFIG_KSU
+	extern int ksu_handle_vfs_read(struct file **file_ptr, char __user **buf_ptr,size_t *count_ptr, loff_t **pos);
+#endif
 ssize_t vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos)
 {
 	ssize_t ret;
-
+#ifdef CONFIG_KSU
+	ksu_handle_vfs_read(&file, &buf, &count, &pos);
+#endif
 	if (!(file->f_mode & FMODE_READ))
 		return -EBADF;
 	if (!(file->f_mode & FMODE_CAN_READ))
@@ -646,13 +650,12 @@ SYSCALL_DEFINE4(pread64, unsigned int, fd, char __user *, buf,
 		ret = -ESPIPE;
 		if (f.file->f_mode & FMODE_PREAD)
 			ret = vfs_read(f.file, buf, count, &pos);
-#if defined(OPLUS_FEATURE_IOMONITOR) && defined(CONFIG_IOMONITOR)
-/* Hank.liu@TECH.PLAT.Storage, 2020-02-18, add fs daily info*/
-		if (ret > 0)
-			iomonitor_update_rw_stats(USER_READ, f.file, ret);
-#endif /*OPLUS_FEATURE_IOMONITOR*/
 		fdput(f);
 	}
+#if defined(OPLUS_FEATURE_IOMONITOR) && defined(CONFIG_IOMONITOR)
+	if (ret > 0)
+		iomonitor_update_rw_stats(USER_READ, f.file, ret);
+#endif /*OPLUS_FEATURE_IOMONITOR*/
 	return ret;
 }
 
@@ -670,13 +673,12 @@ SYSCALL_DEFINE4(pwrite64, unsigned int, fd, const char __user *, buf,
 		ret = -ESPIPE;
 		if (f.file->f_mode & FMODE_PWRITE)  
 			ret = vfs_write(f.file, buf, count, &pos);
-#if defined(OPLUS_FEATURE_IOMONITOR) && defined(CONFIG_IOMONITOR)
-/* Hank.liu@TECH.PLAT.Storage, 2020-02-18, add fs daily info*/
-		if (ret > 0)
-			iomonitor_update_rw_stats(USER_WRITE, f.file, ret);
-#endif /*OPLUS_FEATURE_IOMONITOR*/
 		fdput(f);
 	}
+#if defined(OPLUS_FEATURE_IOMONITOR) && defined(CONFIG_IOMONITOR)
+	if (ret > 0)
+		iomonitor_update_rw_stats(USER_WRITE, f.file, ret);
+#endif /*OPLUS_FEATURE_IOMONITOR*/
 	return ret;
 }
 
@@ -1058,16 +1060,15 @@ static ssize_t do_readv(unsigned long fd, const struct iovec __user *vec,
 		ret = vfs_readv(f.file, vec, vlen, &pos, flags);
 		if (ret >= 0)
 			file_pos_write(f.file, pos);
-#if defined(OPLUS_FEATURE_IOMONITOR) && defined(CONFIG_IOMONITOR)
-/* Hank.liu@TECH.PLAT.Storage, 2020-02-18, add fs daily info*/
-		if (ret > 0)
-			iomonitor_update_rw_stats(USER_READ, f.file, ret);
-#endif /*OPLUS_FEATURE_IOMONITOR*/
 		fdput_pos(f);
 	}
 
 	if (ret > 0)
 		add_rchar(current, ret);
+#if defined(OPLUS_FEATURE_IOMONITOR) && defined(CONFIG_IOMONITOR)
+	if (ret > 0)
+		iomonitor_update_rw_stats(USER_READ, f.file, ret);
+#endif /*OPLUS_FEATURE_IOMONITOR*/
 	inc_syscr(current);
 	return ret;
 }
@@ -1083,16 +1084,15 @@ static ssize_t do_writev(unsigned long fd, const struct iovec __user *vec,
 		ret = vfs_writev(f.file, vec, vlen, &pos, flags);
 		if (ret >= 0)
 			file_pos_write(f.file, pos);
-#if defined(OPLUS_FEATURE_IOMONITOR) && defined(CONFIG_IOMONITOR)
-/* Hank.liu@TECH.PLAT.Storage, 2020-02-18, add fs daily info*/
-		if (ret > 0)
-			iomonitor_update_rw_stats(USER_WRITE, f.file, ret);
-#endif /*OPLUS_FEATURE_IOMONITOR*/
 		fdput_pos(f);
 	}
 
 	if (ret > 0)
 		add_wchar(current, ret);
+#if defined(OPLUS_FEATURE_IOMONITOR) && defined(CONFIG_IOMONITOR)
+	if (ret > 0)
+		iomonitor_update_rw_stats(USER_WRITE, f.file, ret);
+#endif /*OPLUS_FEATURE_IOMONITOR*/
 	inc_syscw(current);
 	return ret;
 }
@@ -1117,16 +1117,15 @@ static ssize_t do_preadv(unsigned long fd, const struct iovec __user *vec,
 		ret = -ESPIPE;
 		if (f.file->f_mode & FMODE_PREAD)
 			ret = vfs_readv(f.file, vec, vlen, &pos, flags);
-#if defined(OPLUS_FEATURE_IOMONITOR) && defined(CONFIG_IOMONITOR)
-/* Hank.liu@TECH.PLAT.Storage, 2020-02-18, add fs daily info*/
-		if (ret > 0)
-			iomonitor_update_rw_stats(USER_READ, f.file, ret);
-#endif /*OPLUS_FEATURE_IOMONITOR*/
 		fdput(f);
 	}
 
 	if (ret > 0)
 		add_rchar(current, ret);
+#if defined(OPLUS_FEATURE_IOMONITOR) && defined(CONFIG_IOMONITOR)
+	if (ret > 0)
+		iomonitor_update_rw_stats(USER_READ, f.file, ret);
+#endif /*OPLUS_FEATURE_IOMONITOR*/
 	inc_syscr(current);
 	return ret;
 }
@@ -1145,16 +1144,15 @@ static ssize_t do_pwritev(unsigned long fd, const struct iovec __user *vec,
 		ret = -ESPIPE;
 		if (f.file->f_mode & FMODE_PWRITE)
 			ret = vfs_writev(f.file, vec, vlen, &pos, flags);
-#if defined(OPLUS_FEATURE_IOMONITOR) && defined(CONFIG_IOMONITOR)
-/* Hank.liu@TECH.PLAT.Storage, 2020-02-18, add fs daily info*/
-		if (ret > 0)
-			iomonitor_update_rw_stats(USER_WRITE, f.file, ret);
-#endif /*OPLUS_FEATURE_IOMONITOR*/
 		fdput(f);
 	}
 
 	if (ret > 0)
 		add_wchar(current, ret);
+#if defined(OPLUS_FEATURE_IOMONITOR) && defined(CONFIG_IOMONITOR)
+	if (ret > 0)
+		iomonitor_update_rw_stats(USER_WRITE, f.file, ret);
+#endif /*OPLUS_FEATURE_IOMONITOR*/
 	inc_syscw(current);
 	return ret;
 }
